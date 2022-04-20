@@ -1,0 +1,109 @@
+--first create Table with table format as per needed from csv dataset
+create or replace table "MY_DB_01"."MY_SCHEMA_01"."flight"(
+ 
+  "Sr" integer,
+  "airline" varchar(30),
+  "flight" varchar(30),
+  "source-city" varchar(30),
+  "Departure-time" varchar(30),
+  "stops" varchar(256),
+  "arrival-time" varchar(256),
+  "destination-city" varchar(256),
+  "class" varchar(256),
+  "Duration" float(20),
+  "days-left" integer,
+  "Price" integer
+  
+)
+
+
+
+--create another backup table for flight
+create or replace table "MY_DB_01"."MY_SCHEMA_01"."flight1"(
+ 
+  "Sr" integer,
+  "airline" varchar(30),
+  "flight" varchar(30),
+  "source-city" varchar(30),
+  "Departure-time" varchar(30),
+  "stops" varchar(256),
+  "arrival-time" varchar(256),
+  "destination-city" varchar(256),
+  "class" varchar(256),
+  "Duration" float(20),
+  "days-left" integer,
+  "Price" integer
+  
+)
+
+
+select * From "MY_DB_01"."MY_SCHEMA_01"."flight1";
+
+
+--copy fight data from flight to flight1 table
+insert into "MY_DB_01"."MY_SCHEMA_01"."flight1" select * from  "MY_DB_01"."MY_SCHEMA_01"."flight";
+
+
+--check if data copied
+select * From "MY_DB_01"."MY_SCHEMA_01"."flight1";
+
+
+--create a new stream for Flight table
+create or replace stream  
+flight_stream on table "MY_DB_01"."MY_SCHEMA_01"."flight"
+append_only=true;
+
+
+----create a new stream for Flight table
+create or replace task flight_task
+    warehouse = compute_wh
+    schedule  = '5 minute'
+  when
+    system$stream_has_data('flight_stream')
+  as
+    insert into "MY_DB_01"."MY_SCHEMA_01"."flight1" select * from flight_stream;
+
+
+--insert data in flight table
+insert into "MY_DB_01"."MY_SCHEMA_01"."flight" values (400001,'vif','aj-1','Hyderabad','Morning','zero','Night','Dubai','Buisness',4,5,80000);
+
+--insert another data row in flight table
+insert into "MY_DB_01"."MY_SCHEMA_01"."flight" values (400202,'vif','aj-2','Hyderabad','Morning','zero','Night','Dubai','Buisness',4,5,81000);
+
+
+
+
+--check for task history 
+select * from table(information_schema.task_history())
+  order by scheduled_time;
+  
+  
+  select * from table(information_schema.task_history())
+  where state ='SCHEDULED' order by scheduled_time;
+  
+  
+  
+--1] Which airline have maximun flights in the morning and Early_morning
+
+  Select MAX("airline") from "MY_DB_01"."MY_SCHEMA_01"."flight" where "arrival-time"='Morning' or "arrival-time"='Early_Morning'
+  
+
+  
+--2] does the fights with one and more than one stops have less price compared to flights with zero stops.
+
+  select avg("Price") from "MY_DB_01"."MY_SCHEMA_01"."flight" where "stops"!='zero'
+  select avg("Price") from "MY_DB_01"."MY_SCHEMA_01"."flight" where "stops"='zero'
+
+--3] Average travel duration for flights with one and than one stops
+  
+  select avg("Duration") from "MY_DB_01"."MY_SCHEMA_01"."flight" where "stops"!='zero'
+
+--4] which airlines makes highets selling for afternoon flights
+
+  Select MAX("airline") from "MY_DB_01"."MY_SCHEMA_01"."flight" where "arrival-time"='Afternoon'
+
+--5] which source || destination flight fare is less
+  Select "source-city", "destination-city" from "MY_DB_01"."MY_SCHEMA_01"."flight" where 'Price'=(select min('Price') from "MY_DB_01"."MY_SCHEMA_01"."flight")
+  
+  
+ 
